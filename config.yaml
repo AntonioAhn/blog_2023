@@ -1,7 +1,7 @@
 baseURL: /
 theme: hugo-apero
 languageCode: en
-title: Hugo Apéro
+title: Antonio Ahn
 author: Antonio Ahn
 copyright: ''
 googleAnalytics: ''
@@ -33,7 +33,7 @@ params:
   custom_theme: ''
   customheadingFontFamily: Fraunces
   customtextFontFamily: Commissioner
-  description: test
+  description: blog
   favicon: /img/favicon.ico
   headingFontFamily: sans-serif
   logo: /img/blogophonic-mark-dark.png
@@ -50,30 +50,21 @@ params:
   social:
     - icon: github
       icon_pack: fab
-      url: https://github.com/apreshill/apero
-    - icon: facebook-square
+      url: https://github.com/AntonioAhn
+    - icon: linkedin-in
       icon_pack: fab
-      url: https://www.facebook.com/hashtag/ap%C3%A9ro
-    - icon: instagram
+      url: https://www.linkedin.com/in/antonio-ahn-092b2535
+    - icon: google-scholar
       icon_pack: fab
-      url: https://www.instagram.com/explore/tags/apero/
+      url: https://scholar.google.co.nz/citations?user=FWq2k-AAAAAJ&hl=en
     - icon: twitter
       icon_pack: fab
-      url: https://twitter.com/hashtag/apéro
-    - icon: impactstory
-      icon_pack: ai
-      url: https://impactstory.org/u/0000-0002-8082-1890
-    - icon: orcid
-      icon_pack: ai
-      url: http://orcid.org/0000-0002-8082-1890
-    - icon: rss
-      icon_pack: fas
-      url: /blog/index.xml
+      url: https://twitter.com/AntonioAhnNZ
   socialInFooter: yes
   socialInHeader: no
   textFontFamily: sans-serif
-  theme: sky
-  twitter: apreshill
+  theme: forest
+  twitter: AntonioAhnNZ
   utterances:
     issue_term: pathname
     label: 'comments :crystal_ball:'
@@ -107,22 +98,18 @@ menu:
       title: Blog
       url: /blog/
       weight: 2
-    - name: Projects
-      title: Project Portfolio
-      url: /project/
+    - name: personal archive
+      title: Personal Archive
+      url: /personal/
       weight: 3
-    - name: Talks
-      title: Talks
-      url: /talk/
+    - name: CV
+      title: CV
+      url: /CV/
       weight: 4
-    - name: A collection
-      title: A collection
-      url: /collection/
+    - name: publication
+      title: Publication
+      url: /publication/
       weight: 5
-    - name: Elements
-      title: Element Page
-      url: /elements/
-      weight: 6
 privacy:
   disqus:
     disable: no
