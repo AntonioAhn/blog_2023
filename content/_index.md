@@ -2,7 +2,7 @@
 title: ""
 subtitle: "I am a postdoctoral scientist in the Goel lab (Peter Peter MacCallum Cancer Centre, Melbourne, Australia)"
 images:
-  - img/revoir.jpg
+  - img/antonio/Antonio_front.jpg
 image_left: true
 text_align_left: false
 show_social_links: true # specify social accounts in site config

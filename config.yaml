@@ -34,9 +34,9 @@ params:
   customheadingFontFamily: Fraunces
   customtextFontFamily: Commissioner
   description: blog
-  favicon: /img/favicon.ico
+  favicon: /img/antonio/favicon.ico
   headingFontFamily: sans-serif
-  logo: /img/blogophonic-mark-dark.png
+  logo: /img/antonio/AA.png
   mainSections:
     - blog
     - project
