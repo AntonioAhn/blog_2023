@@ -55,7 +55,7 @@ params:
       icon_pack: fab
       url: https://www.linkedin.com/in/antonio-ahn-092b2535
     - icon: google-scholar
-      icon_pack: fab
+      icon_pack: ai
       url: https://scholar.google.co.nz/citations?user=FWq2k-AAAAAJ&hl=en
     - icon: twitter
       icon_pack: fab
@@ -76,19 +76,6 @@ taxonomies:
   series: series
   tag: tags
 menu:
-  footer:
-    - name: License
-      title: License
-      url: /license/
-      weight: 1
-    - name: Contact
-      title: Contact form
-      url: /contact/
-      weight: 2
-    - name: Contributors
-      title: Contributors
-      url: /contributors/
-      weight: 3
   header:
     - name: About
       title: About Blogophonic

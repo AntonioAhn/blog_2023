@@ -6,7 +6,7 @@ use_featured: false # if false, use most recent by date
 number_categories: 3 # set to zero to exclude
 show_intro: true
 intro: |
-  I'm a postdoc in the [Goel lab](https://www.petermac.org/research/labs/shom-goel).
+  I'm a postdoc in the [Goel lab](https://www.petermac.org/research/research-programs-and-labs/cancer-biology-and-therapeutics-program/shom-goel-lab) based in Peter MacCallum Cancer Centre (Melbourne, Australia).
 show_outro: false
 outro: |
 ---
