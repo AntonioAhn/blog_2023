@@ -1,15 +1,15 @@
 ---
-title: Blog
+title: personal
 description: |
-  collection of notes
+  collection of notes for myself
 author: "antonio ahn"
-show_post_thumbnail: false
+show_post_thumbnail: true
 thumbnail_left: false # for list-sidebar only
 show_author_byline: false
 show_post_date: true
-show_button_links: false
+show_button_links: true
 # for listing page layout
-layout: list-grid # list, list-sidebar, list-grid
+layout: list-sidebar # list, list-sidebar, list-grid
 
 # for list-sidebar layout
 sidebar: 

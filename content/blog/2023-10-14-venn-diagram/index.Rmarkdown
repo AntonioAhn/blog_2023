@@ -1,8 +1,8 @@
 ---
 title: venn_diagram
-author: Antonio ahn
+author: antonio ahn
 date: '2023-10-14'
-slug: []
+excerpt: 'venn diagram'
 categories: []
 tags: []
 ---
