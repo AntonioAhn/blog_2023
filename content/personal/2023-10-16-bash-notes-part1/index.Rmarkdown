@@ -43,7 +43,9 @@ xarg -I {}
 ```{r eval=FALSE}
 # This matches file names with either DMSO_7d.*bam or LY_7d.*bam$inside the name and both ends with .*bam or LY_7d.bam
 bamReads_1 <- file.path("/researchers/antonio.ahn/1.BostonData_August2020/1.ATACseq/results_250820_set1", list.files(path = "/researchers/antonio.ahn/1.BostonData_August2020/1.ATACseq/results_250820_set1", pattern = "DMSO_7d.*bam$|LY_7d.*bam$"))
+```
 
+```{bash}
 # But in bash you do this 
 ls *{DMSO_7d,LY_7d}*.bam
 
