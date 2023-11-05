@@ -5,6 +5,7 @@ date: '2023-11-05'
 slug: []
 categories: []
 tags: []
+excerpt: "first one"
 ---
 
 
@@ -12,6 +13,7 @@ I got this from April Watt. First one i tired.
 
 [moqueca](https://www.feastingathome.com/brazilian-fish-stew-aka-moqueca/)
 
+![what it is suppose to look like](images/Brazilian-Fish-Stew-23.jpg)
 
 # Ingredients:
 

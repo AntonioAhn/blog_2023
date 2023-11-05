@@ -3,13 +3,13 @@ title: recipes
 description: |
   I've never been a good cook. I am now trying to getting better at this. Here, i'll put the collection of recipes i get from sites and friends. 
 author: "antonio ahn"
-show_post_thumbnail: false
+show_post_thumbnail: true
 thumbnail_left: false # for list-sidebar only
 show_author_byline: false
 show_post_date: true
 show_button_links: false
 # for listing page layout
-layout: list-grid # list, list-sidebar, list-grid
+layout: list-sidebar # list, list-sidebar, list-grid
 
 # for list-sidebar layout
 sidebar: 
