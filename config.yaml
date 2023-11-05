@@ -40,7 +40,7 @@ params:
   mainSections:
     - blog
     - project
-    - talk
+    - recipes
   math:
     renderer: katex
   navallcaps: yes
@@ -97,6 +97,10 @@ menu:
       title: Publication
       url: /publication/
       weight: 5
+    - name: recipes
+      title: recipes
+      url: /recipes/
+      weight: 6
 privacy:
   disqus:
     disable: no
