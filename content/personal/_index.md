@@ -3,13 +3,13 @@ title: personal
 description: |
   collection of notes for myself
 author: "antonio ahn"
-show_post_thumbnail: true
+show_post_thumbnail: false
 thumbnail_left: false # for list-sidebar only
 show_author_byline: false
 show_post_date: true
-show_button_links: true
+show_button_links: false
 # for listing page layout
-layout: list-sidebar # list, list-sidebar, list-grid
+layout: list-grid # list, list-sidebar, list-grid
 
 # for list-sidebar layout
 sidebar: 
