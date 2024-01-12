@@ -1,0 +1,157 @@
+---
+title: Gene ID Conversion
+author: ''
+date: '2024-01-07'
+slug: []
+categories: []
+tags: []
+excerpt: ""
+---
+
+Various ways to convert ENTREZ ID to gene symbols and vice versa
+
+```{r message=FALSE}
+library(tidyverse)
+library(DOSE)
+```
+
+# load dataset
+
+```{r}
+# load a list of ENTREZ ID's
+data(geneList)
+geneList %>% head
+
+length(names(geneList))
+```
+
+# biomart
+
+```{r message=FALSE}
+library(biomaRt)
+```
+
+```{r}
+biomaRt::listEnsemblArchives()
+listMarts()
+
+mart_aug2020 <- biomaRt::useMart(biomart = "ENSEMBL_MART_ENSEMBL", 
+                         dataset = "hsapiens_gene_ensembl",
+                         host = "https://aug2020.archive.ensembl.org")
+
+head(listAttributes(mart_aug2020), n = 10)
+# find the entrez gene id name
+grep( "entrez", listAttributes(mart_aug2020)$name, value = T)
+```
+
+```{r}
+t2g_aug2020 <- biomaRt::getBM(attributes = c("entrezgene_id","external_gene_name", "ensembl_gene_id", "ensembl_gene_id_version", "gene_biotype", "transcript_biotype","chromosome_name", "band", "transcript_length", "start_position", "end_position","transcription_start_site", "strand", "refseq_mrna","refseq_ncrna"), mart = mart_aug2020)
+
+# rename
+t2g_aug2020 <- dplyr::rename(t2g_aug2020,  entrez_gene = entrezgene_id, ext_gene = external_gene_name, ens_gene = ensembl_gene_id, ens_gene_ver = ensembl_gene_id_version)
+```
+
+```{r}
+# biomart genesymbols
+index <- match(names(geneList), t2g_aug2020$entrez_gene)
+biomart_gs <- t2g_aug2020[index,] %>% .$ext_gene
+# wasn't able to use this because the NA's from match is ignored
+# biomart_gs <- t2g_aug2020 %>% slice(match(names(geneList), entrez_gene)) %>% .$ext_gene
+```
+
+# annotationhub
+
+```{r message=FALSE}
+library(AnnotationHub)
+```
+
+```{r eval=FALSE}
+# these codes are from https://github.com/hbctraining/scRNA-seq/blob/master/lessons/mitoRatio.md
+
+# Connect to AnnotationHub
+# the snapshot is saved at /home/aahn/.cache/R/AnnotationHub
+ah <- AnnotationHub()
+
+# Access the Ensembl database for organism
+ahDb <- query(ah, 
+              pattern = c("Homo sapiens", "EnsDb"), 
+              ignore.case = TRUE)
+
+#Next, we acquire the latest annotation files from this Ensembl database.
+#We can first check which annotation versions are available:
+# Check versions of databases available
+ahDb %>% 
+  mcols()
+
+# Since we want the most recent, we will return the AnnotationHub ID for this database:
+# Acquire the latest annotation files
+id <- ahDb %>%
+  mcols() %>%
+  rownames() %>%
+  tail(n = 1)
+
+#Finally, we can use the AnnotationHub connection to download the appropriate Ensembl database, which should be version GRCh38.92.
+
+# Download the appropriate Ensembldb database
+# this took ages so will need to save the rds 
+edb <- ah[[id]]
+
+# this did not work ... i guess you cant save a ENsDb object? 
+#saveRDS(edb, "/researchers/antonio.ahn/resources/R_resources/annotationhub/data/edb_AH104864.rds")
+
+#And to extract gene-level information we can use the Ensembldb function genes() to return a data frame of annotations.
+
+# Extract gene-level information from database
+annotations <- genes(edb, 
+                     return.type = "data.frame")       
+
+# saved as these steps takes quite a while
+saveRDS(annotations, "/researchers/antonio.ahn/resources/R_resources/annotationhub/data/annotations_AH104864.rds")
+```
+
+```{r}
+annoHub <- readRDS("/researchers/antonio.ahn/resources/R_resources/annotationhub/data/annotations_AH104864.rds")
+```
+
+```{r}
+index <- match(names(geneList), annoHub$entrezid)
+annoHub_gs <- annoHub[index,] %>% .$symbol
+```
+
+# mapIds
+
+```{r message=FALSE}
+library(org.Hs.eg.db)
+```
+
+```{r message=FALSE}
+mapIds_gs <- mapIds(org.Hs.eg.db, keys=names(geneList), keytype="ENTREZID", columns="SYMBOL",column="SYMBOL")
+```
+
+# summary
+
+in this example, the mapID method gave the most non NA's
+
+```{r}
+summary_df <- tibble(entrezID = names(geneList), biomart_gs = biomart_gs, mapIds_gs, annoHub_gs)
+```
+
+```{r}
+summary_df$biomart_gs %>% is.na %>% summary
+summary_df$mapIds_gs %>% is.na %>% summary
+summary_df$annoHub_gs %>% is.na %>% summary
+```
+
+```{r echo=FALSE}
+# some notes
+
+#https://www.biostars.org/p/178726/
+#I tried this option but it seems that the annotation in org.Hs.eg.db is not as updated as in biomaRt.
+
+#40% of the ensembl genes (60k) I used as input in org.Hs.eg.db (v. 3.13.0) were not matched with a corresponding ensembl transcript ID, which looks weird to me.
+
+#With biomaRt (v. 2.48.1), only 5% of my ensembl gene IDs input were not mapped, it seems because those 5% were outdated IDs.
+
+#So I would choose biomaRt to annotate Ensembl IDs instead of org.Hs.eg.db .
+```
+
