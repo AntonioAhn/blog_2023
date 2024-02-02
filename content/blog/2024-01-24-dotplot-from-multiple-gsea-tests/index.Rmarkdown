@@ -1,0 +1,201 @@
+---
+title: dotplot from multiple GSEA tests
+author: ''
+date: '2024-01-24'
+slug: []
+categories: []
+tags: []
+excerpt: ""
+---
+
+
+```{r echo=FALSE, eval=FALSE}
+# got my own dataset to get the log2FC rank 
+# from the cancer discovery paper Cath D et al. 2023
+load(file = "/researchers/krutika.ambani/Goel_lab_members/Cath_Dietrich/220801_MCF7M_T47D_LY_LYFR/R_analysis/MCF7M/antonioahn/preparation/data/preparation.RData")
+
+DE_list %>% names
+#names(DE_list) <- paste("comparison", 1:5, sep = "_")
+
+saveRDS(DE_list, "/researchers/antonio.ahn/blog/2023_blog/content/blog/2024-01-24-dotplot-from-multiple-gsea-tests/data/DGE_list.rds")
+```
+
+# load library and datasets
+
+```{r message=FALSE, warning=FALSE}
+library(DOSE)
+library(tidyverse)
+library(org.Hs.eg.db)
+library(clusterProfiler)
+library(DT)
+```
+
+```{r echo=FALSE}
+MSigDB.ofinterest <- readRDS("/researchers/antonio.ahn/resources/R_resources/MSigDB_genesets/Antonio_combined/MSigDB_ofinterest.rds")
+
+# load Differential gene expression dataset 
+DE_list <- readRDS("/researchers/antonio.ahn/blog/2023_blog/content/blog/2024-01-24-dotplot-from-multiple-gsea-tests/data/DGE_list.rds")
+```
+
+# get ranks of genes
+
+```{r}
+# there are 5 comparisons. This dataset is from "Dietrich C, Trub A. INX-315, a selective CDK2 inhibitor, induces cell cycle arrest and senescence in solid tumors. Cancer Discov. 2023 Dec 4"
+DE_list %>% names
+```
+
+```{r echo=FALSE, warning=FALSE}
+# obtain ranks
+GSEA_get_ranks <- function(res_input){
+  res_GSEA <- res_input %>% 
+    # using logFC_MMSE from DESeq2. shrunken logFC
+  dplyr::select(SYMBOL, logFC_MMSE) %>% 
+  na.omit() %>% #remove NA
+  distinct() %>% # remove duplicated
+  group_by(SYMBOL) %>% 
+  summarize(logFC_MMSE=mean(logFC_MMSE))
+  
+  deframe(res_GSEA)
+}
+
+res_names <- DE_list %>% names
+GSEA_ranks <- vector(mode="list", length = length(res_names))
+for(i in 1:length(GSEA_ranks)){
+  GSEA_ranks[[i]] <- GSEA_get_ranks(DE_list[[i]])
+}
+names(GSEA_ranks) <- res_names 
+
+GSEA_ranks %>% lapply(head)
+```
+
+
+```{r echo=FALSE, message=FALSE}
+# running all GSEA using hallmakr genesets
+gsea_output <- vector(mode="list", length = length(GSEA_ranks))
+
+for(i in 1:length(GSEA_ranks)){
+gsea_output[[i]] <-   GSEA(sort(GSEA_ranks[[i]], decreasing=TRUE), TERM2GENE = h_gene_sets, pvalueCutoff = 1.0, eps=0)
+}
+# uptohere
+names(gsea_output) <- res_names
+
+gsea_df <- gsea_output %>% lapply(function(x){ x %>% as_tibble})
+```
+
+```{r}
+# %>% filter(padj < 0.2) %>%  arrange(desc(NES))
+gsea_df$PAR_LYvsDMSO %>% datatable(caption = "PAR_LYvsDMSO")
+gsea_df$PAR_ARCvsDMSO %>% datatable(caption="PAR_ARCvsDMSO")
+gsea_df$PAR_LY.ARCvsDMSO %>% datatable(caption = "PAR_LY.ARCvsDMSO")
+```
+
+
+```{r echo=FALSE, results=FALSE}
+combined_genesets_up <- gsea_df %>% lapply(function(x){x %>% filter(p.adjust<0.05 & NES > 0) %>% arrange(desc(NES)) %>% .$ID %>%  head(n=10)}) %>% unlist %>% unique
+
+combined_genesets_down <- gsea_df %>% lapply(function(x){x %>% filter(p.adjust<0.05 & NES < 0) %>% arrange(NES) %>% .$ID %>%  head(n=10)}) %>% unlist %>% unique
+
+combined_genesets <- c(combined_genesets_up, combined_genesets_down) %>% unique
+
+# combined_genesets[combined_genesets == "GOMF_OXIDOREDUCTASE_ACTIVITY_ACTING_ON_PAIRED_DONORS_WITH_INCORPORATION_OR_REDUCTION_OF_MOLECULAR_OXYGEN_REDUCED_FLAVIN_OR_FLAVOPROTEIN_AS_ONE_DONOR_AND_INCORPORATION_OF_ONE_ATOM_OF_OXYGEN"] <- "GOMF_OXIDOREDUCTASE_ACTIVITY"
+```
+
+
+```{r echo=FALSE, results=FALSE}
+GSEA_names <- gsub("res_","",names(gsea_df))
+
+GSEA_ggplot <- data.frame()
+
+for(i in 1:length(GSEA_names)){
+  temp <- gsea_df[[i]] %>% mutate(group = GSEA_names[i]) %>% dplyr::select(-leading_edge, -core_enrichment) %>% filter(ID %in% combined_genesets)
+  GSEA_ggplot <- rbind(GSEA_ggplot , temp)
+}
+
+GSEA_ggplot$ID <- GSEA_ggplot$ID %>% factor(levels = combined_genesets)
+GSEA_ggplot$group <- factor(GSEA_ggplot$group, levels = GSEA_names)
+
+
+# GSEA_ggplot$NES[GSEA_ggplot$p.adjust > 0.05] <- NA
+```
+
+```{r echo=FALSE, results=FALSE, fig.height = 8, fig.width=7 }
+
+#GSEA_ggplot  %>% 
+#  ggplot(aes(x = group, y = ID,  fill =  NES)) +
+#  geom_tile() +
+#  scale_fill_gradientn(colours = c("blue","white", "red"), limits = c(-2,2)) +
+#  geom_tile(data = filter(GSEA_ggplot, p.adjust > 0.05), fill = "orange")
+
+
+#  geom_tile(data = filter(GSEA_ggplot, p.adjust > 0.05), aes(x = group, y=ID, fill = "orange"))
+  
+GSEA_ggplot$NES %>% range
+# decided not to use this but the heatmap instead 
+GSEA_ggplot  %>% 
+  ggplot(aes(x = group, y = ID,  fill =  NES)) +
+  scale_fill_gradientn(colours = c("dodgerblue3","white", "orange"), limits = c(-4,4)) +
+  geom_tile() +
+  geom_tile(data = filter(GSEA_ggplot, p.adjust > 0.05), fill = "white") + 
+  geom_text(aes(label = sprintf("%0.2f",NES))) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, color = "black", size = 12), 
+        axis.text.y = element_text(color = "black", size = 10), 
+        axis.title.y = element_blank(), 
+        axis.title.x = element_blank(), 
+        legend.position = "bottom") +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+
+```
+
+```{r echo=FALSE, results=FALSE, fig.height = 8, fig.width=6}
+GSEA_ggplot$NES %>% range
+GSEA_ggplot$p.adjust[GSEA_ggplot$p.adjust > 0.05] <- NA
+
+# decided not to use this but the heatmap instead 
+GSEA_ggplot  %>% 
+  ggplot(aes(x = group, y = ID,  col =  NES)) +
+  # scale_fill_gradientn(colours = c("dodgerblue3","white", "orange"), limits = c(-4,4)) +
+  scale_color_gradientn(colours = c("dodgerblue3","white", "orange")) +
+  geom_point(aes(size = -log10(p.adjust))) +
+  #geom_tile() +
+  #geom_tile(data = filter(GSEA_ggplot, p.adjust > 0.05), fill = "white") + 
+ # geom_text(aes(label = sprintf("%0.2f",NES))) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, color = "black", size = 12), 
+        axis.text.y = element_text(color = "black", size = 10), 
+        axis.title.y = element_blank(), 
+        axis.title.x = element_blank(), 
+        legend.position = "right")
+  # theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+
+```
+
+
+
+# barcode plots
+
+
+```{r}
+library(clusterProfiler)
+library(enrichplot)
+```
+
+```{r fig.height = 7, fig.length = 12}
+gseaplot2(gsea_output$PAR_LYvsDMSO, geneSetID =  c("HALLMARK_E2F_TARGETS"), title = "MCF7M LYvsDMSO", color = c("#E495A5", "#86B875"), pvalue_table = TRUE, base_size = 14) 
+
+gseaplot2(gsea_output$PAR_ARCvsDMSO, geneSetID =  c("HALLMARK_E2F_TARGETS"), title = "MCF7M PAR_ARCvsDMSO", color = c("#E495A5", "#86B875"), pvalue_table = TRUE, base_size = 14)
+
+gseaplot2(gsea_output$PAR_LY.ARCvsDMSO, geneSetID =  c("HALLMARK_E2F_TARGETS"), title = "MCF7M PAR_LY.ARCvsDMSO", color = c("#E495A5", "#86B875"), pvalue_table = TRUE, base_size = 14)
+```
+
+```{r fig.height = 7, fig.length = 12}
+gseaplot2(gsea_output_T47D$PAR_LYvsDMSO, geneSetID =  c("HALLMARK_E2F_TARGETS"), title = "T47D LYvsDMSO", color = c("#E495A5", "#86B875"), pvalue_table = TRUE, base_size = 14)
+
+gseaplot2(gsea_output_T47D$PAR_ARCvsDMSO, geneSetID =  c("HALLMARK_E2F_TARGETS"), title = "T47D PAR_ARCvsDMSO", color = c("#E495A5", "#86B875"), pvalue_table = TRUE, base_size = 14)
+
+gseaplot2(gsea_output_T47D$PAR_LY.ARCvsDMSO, geneSetID =  c("HALLMARK_E2F_TARGETS"), title = "T47D PAR_LY.ARCvsDMSO", color = c("#E495A5", "#86B875"), pvalue_table = TRUE, base_size = 14)
+
+```
+
+
+
