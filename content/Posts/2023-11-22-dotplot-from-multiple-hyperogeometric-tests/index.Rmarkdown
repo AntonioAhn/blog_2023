@@ -1,0 +1,98 @@
+---
+title: dotplot from multiple hyperogeometric tests
+author: ''
+date: '2023-11-22'
+slug: []
+categories: []
+tags: []
+excerpt: ""
+---
+
+
+```{r message=FALSE, warning=FALSE}
+library(DOSE)
+library(tidyverse)
+library(org.Hs.eg.db)
+library(clusterProfiler)
+library(DT)
+
+data(geneList)
+```
+
+```{r echo=FALSE}
+MSigDB.ofinterest <- readRDS("/researchers/antonio.ahn/resources/R_resources/MSigDB_genesets/Antonio_combined/MSigDB_ofinterest.rds")
+```
+
+```{r}
+geneList %>% head
+geneList %>% tail
+
+# change ENTREZID to gene symbols
+names(geneList) <- mapIds(org.Hs.eg.db, keys=names(geneList), keytype="ENTREZID", columns="SYMBOL",column="SYMBOL")
+
+genes_list <- list()
+genes_list[[1]] <- names(geneList)[geneList > 2]
+genes_list[[2]] <- names(geneList)[geneList < -2]
+
+names(genes_list) <- paste("comparison", 1:length(genes_list), sep = "_")
+
+genes_list %>% lapply(head)
+genes_list %>% lapply(length)
+```
+
+```{r}
+hypergeo_output <- genes_list %>% lapply(function(x){
+  x %>% enricher(TERM2GENE = MSigDB.ofinterest, pvalueCutoff = 1, qvalueCutoff = 1, universe = names(geneList))
+})
+
+hypergeo_df <- hypergeo_output %>% lapply(function(x){ x %>% as_tibble})
+```
+
+```{r}
+hypergeo_df$comparison_1 %>% datatable()
+hypergeo_df$comparison_2 %>% datatable()
+```
+
+# plots
+
+```{r}
+#  get top genesets for each comparison
+top_genesets <- lapply(hypergeo_df, function(x){
+  x %>% filter(p.adjust < 0.05) %>% .$Description %>%  head(n=15)
+}) %>% unlist %>% unique
+```
+
+
+```{r results=FALSE}
+hypergeo_plot <- data.frame()
+for(i in 1:length(hypergeo_df)){
+  temp <- hypergeo_df[[i]] %>% dplyr::slice(match(top_genesets, ID)) %>% mutate(group= names(hypergeo_df)[i])
+  hypergeo_plot <- rbind(hypergeo_plot, temp)
+}
+
+hypergeo_plot$group <- factor(hypergeo_plot$group)
+hypergeo_plot$ID <- factor(hypergeo_plot$ID , levels = top_genesets)
+hypergeo_plot$GeneRatio %>% head 
+
+# GeneRatio is a character vector that looks like "82/2838". need to divde the first with second element to get a numeric value
+hypergeo_plot$GeneRatio_number <- hypergeo_plot$GeneRatio %>% str_split(pattern = "/") %>% lapply(function(x){ 
+  x <- x %>% as.numeric
+  x[[1]]/x[[2]]
+  }) %>% unlist
+
+hypergeo_plot$group <- factor(hypergeo_plot$group, levels = unique(hypergeo_plot$group))
+
+# any p,adjust value higher than 0.05 are removed from the plot using NA
+hypergeo_plot$GeneRatio_number[hypergeo_plot$p.adjust > 0.05] <- NA
+hypergeo_plot$p.adjust[hypergeo_plot$p.adjust > 0.05] <- NA
+```
+
+```{r fig.width=12, fig.height=8, warning=FALSE}
+hypergeo_plot %>% ggplot(aes(x = group, y = ID,  col =  -log10(p.adjust))) +
+  scale_colour_gradientn(colours = c("orange","red", "darkred")) +
+  # scale_colour_gradientn(colours = c("orange", "yellow", "white")) +
+  # scale_color_gradient2(midpoint=2, low="blue", mid="white", high="red") +
+  geom_point(aes(size = GeneRatio_number)) + 
+  theme_bw() +
+  theme(axis.title.y = element_blank(),axis.title.x = element_blank(), axis.text.x = element_text(angle=45, hjust =1))
+```

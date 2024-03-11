@@ -81,14 +81,14 @@ menu:
       title: About Blogophonic
       url: /about/
       weight: 1
-    - name: Blog
-      title: Blog
-      url: /blog/
+    - name: Posts
+      title: Posts
+      url: /Posts/
       weight: 2
-    - name: personal archive
-      title: Personal Archive
-      url: /personal/
-      weight: 3
+#    - name: personal archive
+#      title: Personal Archive
+#      url: /personal/
+#      weight: 3
     - name: CV
       title: CV
       url: /CV/

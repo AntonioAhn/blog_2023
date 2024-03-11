@@ -1,0 +1,64 @@
+---
+title: "bash one liner"
+author: ''
+date: "2023-11-16"
+excerpt: ''
+slug: []
+categories: []
+tags: []
+---
+
+
+Just some bash notes which i find very useful but i keep forgetting.
+
+# Find 
+
+
+```bash
+# find and grep
+find . -name "*.Rmd" | xargs grep "enricher"
+
+# find and execute
+find . -name "*rawcounts.csv" -exec scp -r -i ~/.ssh/id_transfer {} transfer@pmcc-transfer-server.petermac.org.au:/data/transfer/antonio.ahn/raw_counts_csv \;
+
+# find multiple files in a directory
+find $bam_files_dir \( -name "*MDA-MB-453*_unique_aln.bam" -o -name "*M453*_unique_aln.bam" \)
+# then use that to merge 
+samtools merge m453_DMSO_7D_merged.bam $(find $bam_files_dir -name "*MDA-MB-453*_unique_aln.bam" | grep -E 'DMSO_7d|LY_7d|LYR1000')
+```
+
+
+
+
+
+
+# xarg
+
+
+```bash
+
+xarg -I {} 
+
+```
+
+
+
+# matching different patterns for listing files 
+
+
+```r
+# This matches file names with either DMSO_7d.*bam or LY_7d.*bam$inside the name and both ends with .*bam or LY_7d.bam
+bamReads_1 <- file.path("/researchers/antonio.ahn/1.BostonData_August2020/1.ATACseq/results_250820_set1", list.files(path = "/researchers/antonio.ahn/1.BostonData_August2020/1.ATACseq/results_250820_set1", pattern = "DMSO_7d.*bam$|LY_7d.*bam$"))
+```
+
+
+```bash
+# But in bash you do this 
+ls *{DMSO_7d,LY_7d}*.bam
+
+# For gsub i also used s* (at https://stackoverflow.com/questions/17166618/regular-expression-containing-one-word-or-another)
+
+```
+
+
+

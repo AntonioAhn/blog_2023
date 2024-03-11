@@ -1,0 +1,483 @@
+---
+title: bash scripts for Lexogen QuantSeq 3prime UTR mRNA-Seq
+author: ''
+date: '2024-01-12'
+slug: []
+categories: []
+tags: []
+excerpt: ""
+---
+
+
+- Current bash scripts for running QuantSeq 3'UTR RNAseq (Lexogen)
+- Strand specific
+- single-end
+
+# Set up the files
+
+
+```bash
+cd ${working_dir}
+mkdir -p R_analysis  raw_data  results scripts  trim_data  workflow
+cd R_analysis 
+mkdir -p main_analysis data
+```
+
+
+# FASTQC
+
+
+```bash
+#!/bin/bash
+#SBATCH --job-name=FASTQC-job
+#SBATCH -N 1
+#SBATCH --mem=3G
+#SBATCH --cpus-per-task=10
+#SBATCH -t 5:00:00
+#SBATCH --mail-user=antonio.ahn@petermac.org
+#SBATCH --mail-type=end
+#SBATCH --output=FASTQC_raw-%j.out
+#SBATCH --error=FASTQC_raw-%j.err
+
+# saved to fastqc.sh at ${working_dir}/scripts
+
+module load fastqc/0.11.5
+module load multiqc/1.8
+
+set -xe
+
+# make a variable for the path where data is
+raw_data_dir=/pipeline/Archives/NextSeq/231130_VH01624_45_AACF3KNHV/ProjectFolders/Project_Christabella-Mahendra
+fastqc_out_dir="${working_dir}/raw_data"
+
+cd $raw_data_dir
+
+# make a variable for the path where output will be stored
+mkdir -p $fastqc_out_dir/fastqc_out
+
+# Run fastqc
+for i in *R1_001.fastq.gz;
+do
+(cd "$i" && fastqc -t 9 -o $fastqc_out_dir/fastqc_out *_001.fastq.gz) ;
+done
+
+cd $fastqc_out_dir/fastqc_out
+multiqc --filename multiqc_RNAseq *fastqc.zip
+```
+
+# trim script
+
+
+```bash
+#!/bin/bash
+#SBATCH --job-name=trimfastq-job
+#SBATCH -N 1
+#SBATCH --mem=12G
+#SBATCH --cpus-per-task=15
+#SBATCH -t 12:00:00
+#SBATCH --mail-user=antonio.ahn@petermac.org
+#SBATCH --mail-type=end
+#SBATCH --output=Trim-%j.out
+#SBATCH --error=Trim-%j.err
+
+# saved as trim.sh at ${working_dir}/scripts
+
+# load module
+module load fastqc/0.11.5
+module load multiqc/1.8
+
+raw_data_dir="/pipeline/Archives/NextSeq/231130_VH01624_45_AACF3KNHV/ProjectFolders/Project_Christabella-Mahendra"
+trim_output="${working_dir}/trim_data"
+rawdata_fastqc_dir="${working_dir}/raw_data/fastqc_out"
+
+mkdir -p $trim_output
+mkdir -p $trim_output/fastqc_out_trim
+cd $raw_data_dir
+
+set -xe
+
+
+for infile in *; 
+do
+(cd "$infile" && for i in *_R1_001.fastq.gz; 
+
+do
+base=`basename ${i} _R1_001.fastq.gz`
+echo "sample name is ${base}"
+/researchers/antonio.ahn/tools/bbmap/bbduk.sh in=${i} out=$trim_output/${base}_R1.trim.fastq.gz ref=/researchers/antonio.ahn/tools/bbmap/resources/truseq.fa.gz \
+ktrim=r k=23 mink=11 hdist=1 tpe tbo qtrim=r trimq=5 minlen=20 \
+stats=$trim_output/${base}_bbduk.trimstats.txt refstats=$trim_output/${base}_bbduk.refstats.txt &> $trim_output/${base}_bbduk.stdout_stats.txt;
+
+done);
+
+done
+
+
+cd $trim_output
+
+# perform fastqc
+fastqc -t 14 -o fastqc_out_trim *.fastq.gz
+
+# perform multiqc
+cd $trim_output/fastqc_out_trim
+multiqc --filename fastqc_out_trim *_fastqc.zip \
+$rawdata_fastqc_dir/*_fastqc.zip \
+$trim_output/*.txt
+
+```
+
+# STAR
+
+
+```bash
+#!/bin/bash
+#SBATCH --job-name=STARalign-job
+#SBATCH -N 1
+#SBATCH --mem-per-cpu=15G
+#SBATCH --cpus-per-task=15
+#SBATCH -t 24:00:00
+#SBATCH --mail-user=antonio.ahn@petermac.org
+#SBATCH --mail-type=end
+#SBATCH --output=STARalign-%j.out
+#SBATCH --error=STARalign-%j.err
+
+# script saved to STARalign.sh at ${working_dir}/scripts
+# This script takes a fastq file of RNA-Seq data, runs STAR and outputs BAM files.
+
+# paths
+trim_data_dir="${working_dir}/trim_data"
+GENOME="/researchers/antonio.ahn/refgenome/mouse/mm10_UCSC_STAR/STAR"
+outputfiles="${working_dir}/results/STAR_bam_files"
+cd $trim_data_dir
+
+# load module
+module load star/2.7.5b
+
+# set -x is a debugging tool that will make bash display the command before executing it. In case of an issue with the commands in the shell script, this type of debugging lets you quickly pinpoint the step that is throwing an error. Often, tools will display the error that caused the program to stop running, so keep this in mind for times when you are running into issues where this is not available. You can turn this functionality off by saying set +x
+# By default, a shell script containing a command that fails will not cause the entire shell script to exit: the shell script will just continue on to the next line. We always want errors to be loud and noticeable. This option prevents this, by terminating the script if any command exited with a nonzero exit status.
+set -ex
+
+# Unmapped reads can be output into the SAM/BAM Aligned.* file(s) with --outSAMunmapped Within option
+# string: a string of desired SAM attributes, in the order desired for the output SAM. All gives NH HI AS nM NM MD jM jI MC ch
+
+mkdir -p $outputfiles
+
+for infile in *_R1.trim.fastq.gz;
+do
+base=`basename ${infile} _R1.trim.fastq.gz`
+echo "Sample name is $base and fastq name is ${infile}"
+STAR --runThreadN 14 \
+--genomeDir $GENOME \
+--readFilesIn ${infile} \
+--outFileNamePrefix $outputfiles/${base} \
+--outSAMtype BAM SortedByCoordinate \
+--outSAMunmapped Within \
+--outSAMattributes All \
+--readFilesCommand zcat;
+done
+```
+
+# fcounts
+
+
+```bash
+#!/bin/bash
+#SBATCH --job-name=fcounts-job
+#SBATCH -N 1
+#SBATCH --mem=12G
+#SBATCH --cpus-per-task=12
+#SBATCH -t 12:00:00
+#SBATCH --mail-user=antonio.ahn@petermac.org
+#SBATCH --mail-type=end
+#SBATCH --output=fcounts-%j.out
+#SBATCH --error=fcounts-%j.err
+
+# script saved to fcounts_STAR.sh at ${working_dir}/scripts
+# script to obtain counts
+
+# set paths
+bamfiles="${working_dir}/results/STAR_bam_files"
+GENOME="/researchers/antonio.ahn/refgenome/mouse/mm10_UCSC_STAR"
+FC="/home/aahn/tools/featurecounts/subread-2.0.1-Linux-x86_64/bin"
+
+mkdir -p $bamfiles/featurecounts_unstranded
+mkdir -p $bamfiles/featurecounts_stranded_1
+mkdir -p $bamfiles/featurecounts_stranded_2
+
+:
+# -T Number of the threads
+# -p If specified, fragments (or templates) will be counted instead of reads. This option is only applicable for paired-end reads.
+# -s Perform strand-specific read counting. Possible values: 0 (unstranded), 1 (stranded) and 2 (reversely stranded). 0 by default.
+# -t Specify feature type in GTF annotation. `exon' by default. Features used for read counting will be extracted from annotation using the provided value
+# -g Specify attribute type in GTF annotation. `gene_id' by default. Meta-features used for read counting will be extracted from annotation using the provided value.
+
+
+$FC/featureCounts -T 11 -s 0 -t exon -g gene_id \
+-a $GENOME/gencode.vM25.basic.annotation.gtf \
+-o $bamfiles/featurecounts_unstranded/featurecounts_unstranded.txt \
+$bamfiles/*sortedByCoord.out.bam
+
+$FC/featureCounts -T 11 -s 1 -t exon -g gene_id \
+-a $GENOME/gencode.vM25.basic.annotation.gtf \
+-o $bamfiles/featurecounts_stranded_1/featurecounts_stranded_1.txt \
+$bamfiles/*sortedByCoord.out.bam
+
+$FC/featureCounts -T 11 -s 2 -t exon -g gene_id \
+-a $GENOME/gencode.vM25.basic.annotation.gtf \
+-o $bamfiles/featurecounts_stranded_2/featurecounts_stranded_2.txt \
+$bamfiles/*sortedByCoord.out.bam
+
+```
+
+
+# multiQC
+
+
+
+```bash
+#!/bin/bash
+#SBATCH --job-name=MultiQC-job
+#SBATCH -N 1
+#SBATCH --mem=5G
+#SBATCH --cpus-per-task=5
+#SBATCH -t 10:00:00
+#SBATCH --mail-user=antonio.ahn@petermac.org
+#SBATCH --mail-type=end
+#SBATCH --output=MultiQC-%j.out
+#SBATCH --error=MultiQC-%j.err
+
+# saved as multiQC.sh at ${working_dir}/scripts
+
+STAR_dir="${working_dir}/results/STAR_bam_files"
+fastqc_dir="${working_dir}/trim_data"
+output_dir="${working_dir}/results/multiqc"
+fcounts_dir="${STAR_dir}/featurecounts_stranded_1"
+
+mkdir -p $output_dir
+
+module load multiqc/1.8
+
+set -xe
+
+cd $output_dir
+
+multiqc --filename multiqc_summary \
+$fastqc_dir/fastqc_out_trim/*.trim_fastqc.zip \
+$fastqc_dir/*_stats.txt \
+$STAR_dir/*Log.final.out \
+$fcounts_dir/*txt.summary
+
+```
+
+
+# generate bigwig files
+
+
+```bash
+#!/bin/bash
+#SBATCH --job-name=bigwig-job
+#SBATCH -N 1
+#SBATCH --mem=5G
+#SBATCH --cpus-per-task=15
+#SBATCH -t 12:00:00
+#SBATCH --mail-user=antonio.ahn@petermac.org
+#SBATCH --mail-type=end
+#SBATCH --output=bigwig-%j.out
+#SBATCH --error=bigwig-%j.err
+
+# script saved to bigwig.sh at ${working_dir}/scripts
+
+module load deeptools/3.5.0
+module load samtools/1.9
+
+
+set -xe
+
+# set paths
+bamfiles="${working_dir}/results/STAR_bam_files"
+bw_output=${working_dir}/results/STAR_bam_files/bigwig
+
+cd $bamfiles
+
+for bam in *Aligned.sortedByCoord.out.bam;
+do
+
+base=$(basename ${bam} Aligned.sortedByCoord.out.bam)
+echo "sample name is ${base}"
+samtools index -@ 14 $bam
+bamCoverage -b $bam \
+-o $bw_output/${base}.bw \
+--normalizeUsing RPKM \
+-p 14;
+
+done
+
+```
+
+
+
+# subread (optional)
+
+## build index for subread
+
+
+```bash
+#!/bin/bash
+#SBATCH --job-name=index-job
+#SBATCH -N 1
+#SBATCH --mem=12G
+#SBATCH --cpus-per-task=12
+#SBATCH -t 12:00:00
+#SBATCH --mail-user=antonio.ahn@petermac.org
+#SBATCH --mail-type=end
+#SBATCH --output=index-%j.out
+#SBATCH --error=index-%j.err
+
+# script saved to subread_index.sh at ${working_dir}/scripts
+# script to obtain counts
+
+# set paths
+bamfiles="${working_dir}/results/bamfiles"
+GENOME="/researchers/antonio.ahn/refgenome/mouse/mm10_UCSC_subread"
+FC="/home/aahn/tools/featurecounts/subread-2.0.1-Linux-x86_64/bin"
+
+
+cd $GEOME
+
+$FC/subread-buildindex -o index mm10.fa
+
+```
+
+(optional)
+
+
+```bash
+#!/bin/bash
+#SBATCH --job-name=subread-job
+#SBATCH -N 1
+#SBATCH --mem=12G
+#SBATCH --cpus-per-task=12
+#SBATCH -t 12:00:00
+#SBATCH --mail-user=antonio.ahn@petermac.org
+#SBATCH --mail-type=end
+#SBATCH --output=subread-%j.out
+#SBATCH --error=subread-%j.err
+
+# script saved to subread_align.sh at ${working_dir}/scripts
+# script to obtain counts
+
+# set paths
+input_dir="${working_dir}/trim_data"
+output_dir="${working_dir}/results/subread_bam_files"
+GENOME_index_dir="/researchers/antonio.ahn/refgenome/mouse/mm10_UCSC_subread"
+FC="/home/aahn/tools/featurecounts/subread-2.0.1-Linux-x86_64/bin"
+
+mkdir -p $output_dir
+
+cd $input_dir
+
+for infile in *_R1.trim.fastq.gz;
+do
+base=`basename ${infile} _R1.trim.fastq.gz`
+echo "Sample name is $base and fastq name is ${infile}"
+${FC}/subread-align -t 0 -T 11 -i $GENOME_index_dir/index -r $infile -o ${output_dir}/${base}.bam;
+done
+```
+
+
+
+```bash
+#!/bin/bash
+#SBATCH --job-name=fcounts-job
+#SBATCH -N 1
+#SBATCH --mem=12G
+#SBATCH --cpus-per-task=12
+#SBATCH -t 12:00:00
+#SBATCH --mail-user=antonio.ahn@petermac.org
+#SBATCH --mail-type=end
+#SBATCH --output=fcounts-%j.out
+#SBATCH --error=fcounts-%j.err
+
+# script saved to subread_fcounts.sh at ${working_dir}/scripts
+# script to obtain counts
+
+# set paths
+bamfiles_dir="${working_dir}/results/subread_bam_files"
+annotation_dir="/home/aahn/tools/featurecounts/subread-2.0.1-Linux-x86_64/annotation"
+FC="/home/aahn/tools/featurecounts/subread-2.0.1-Linux-x86_64/bin"
+
+mkdir -p $bamfiles_dir/featurecounts_unstranded
+mkdir -p $bamfiles_dir/featurecounts_stranded_1
+mkdir -p $bamfiles_dir/featurecounts_stranded_2
+
+# -T Number of the threads
+# -p If specified, fragments (or templates) will be counted instead of reads. This option is only applicable for paired-end reads.
+# -s Perform strand-specific read counting. Possible values: 0 (unstranded), 1 (stranded) and 2 (reversely stranded). 0 by default.
+# -t Specify feature type in GTF annotation. `exon' by default. Features used for read counting will be extracted from annotation using the provided value
+# -g Specify attribute type in GTF annotation. `gene_id' by default. Meta-features used for read counting will be extracted from annotation using the provided value.
+
+
+$FC/featureCounts -T 11 -p -s 0 -F SAF \
+-a $annotation_dir/mm10_RefSeq_exon.txt \
+-o $bamfiles_dir/featurecounts_unstranded/featurecounts_unstranded.txt \
+$bamfiles_dir/*.bam
+
+$FC/featureCounts -T 11 -p -s 1 -F SAF \
+-a $annotation_dir/mm10_RefSeq_exon.txt \
+-o $bamfiles_dir/featurecounts_stranded_1/featurecounts_stranded_1.txt \
+$bamfiles_dir/*.bam
+
+$FC/featureCounts -T 11 -p -s 2 -F SAF \
+-a $annotation_dir/mm10_RefSeq_exon.txt \
+-o $bamfiles_dir/featurecounts_stranded_2/featurecounts_stranded_2.txt \
+$bamfiles_dir/*.bam
+
+```
+
+
+
+```bash
+#!/bin/bash
+#SBATCH --job-name=bigwig-job
+#SBATCH -N 1
+#SBATCH --mem=5G
+#SBATCH --cpus-per-task=15
+#SBATCH -t 12:00:00
+#SBATCH --mail-user=antonio.ahn@petermac.org
+#SBATCH --mail-type=end
+#SBATCH --output=bigwig-%j.out
+#SBATCH --error=bigwig-%j.err
+
+# script saved to [bigwig sh](bigwig.sh) at ${working_dir}/scripts
+
+module load deeptools/3.5.0
+module load samtools/1.9
+
+
+set -xe
+
+# set paths
+bamfiles="${working_dir}/results/subread_bam_files"
+bw_output=${working_dir}/results/subread_bam_files/bigwig
+
+cd $bamfiles
+
+mkdir -p $bw_output
+
+for bam in *bam;
+do
+
+base=$(basename ${bam} .bam)
+echo "sample name is ${base}"
+samtools sort -@ 14 $bam -o ${base}_sorted.bam
+samtools index -@ 14 ${base}_sorted.bam
+bamCoverage -b ${base}_sorted.bam \
+-o $bw_output/${base}.bw \
+--normalizeUsing RPKM \
+-p 14;
+
+done
+
+```
+
+

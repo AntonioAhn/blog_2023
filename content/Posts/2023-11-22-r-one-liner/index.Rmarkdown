@@ -1,0 +1,23 @@
+---
+title: R one liner
+author: ''
+date: '2023-11-22'
+slug: []
+categories: []
+excerpt: ""
+tags: []
+---
+
+
+
+
+# rename all column names with an suffix
+
+```{r eval=FALSE}
+H3K27acCounts_RBpeaks %>% 
+  mcols %>% 
+  as_tibble %>% 
+  dplyr::select(Conc:FDR,ID) %>% 
+  rename_with(.cols = everything(), function(x){paste0(x, "_H3K27ac")})
+```
+
